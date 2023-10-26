@@ -1,0 +1,94 @@
+/**
+ * @file
+ *
+ * @author      Amin Amani
+ * @brief       YoloV5 example: inference on a single image
+ *
+ * Copyright (c) 2021, Noah van der Meer
+ *
+ *
+ */
+
+#include "yolov5_detector.hpp"
+#include <QCoreApplication>
+#include <QDebug>
+#include <iostream>
+#include <chrono>
+#include <ros/ros.h>
+#include <sensor_msgs/Image.h>
+#include <cv_bridge/cv_bridge.h>
+#include <opencv2/opencv.hpp>
+yolov5::Detector detector;
+yolov5::Result r;
+cv::Mat image;
+  const cv::Scalar magenta(255, 51, 153); /*  BGR */
+std::vector<yolov5::Detection> detections;
+
+void cameraCallback(const sensor_msgs::ImageConstPtr& image_msg) {
+    try {
+        // Convert the ROS image message to an OpenCV image
+        cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8);
+        image = cv_ptr->image;
+        r = detector.detect(image, &detections, yolov5::INPUT_BGR);
+
+        if(r != yolov5::RESULT_SUCCESS)
+        {
+            std::cout << "detect() failed: " << yolov5::result_to_string(r)
+                      << std::endl;
+            return ;
+        }
+
+        for(unsigned int i = 0; i < detections.size(); ++i)
+        {
+            yolov5::visualizeDetection(detections[i], &image, magenta, 1.0);
+        }
+
+        // Display the image in an OpenCV window
+        cv::imshow("Camera Feed", image);
+        cv::waitKey(1); // Adjust the wait time (in milliseconds) to control frame rate
+    } catch (cv_bridge::Exception& e) {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+    }
+}
+
+int main(int argc, char** argv) {
+    // Initialize the ROS node
+    ros::init(argc, argv, "camera_subscriber");
+    ros::NodeHandle nh;
+    r = detector.init();
+    if(r != yolov5::RESULT_SUCCESS)
+    {
+        std::cout << "init() failed: " << yolov5::result_to_string(r)
+                  << std::endl;
+        return 1;
+    }
+    r = detector.loadEngine("/home/surenav/Yolo-TensorRT-UBUNTU-main/models/yolov5.engine");
+    if(r != yolov5::RESULT_SUCCESS)
+    {
+        std::cout << "loadEngine() failed: " << yolov5::result_to_string(r)
+                  << std::endl;
+        return 1;
+    }
+    image=cv::imread("/home/surenav/Yolo-TensorRT-UBUNTU-main/zidane.png");
+    if(image.empty())
+    {
+        std::cout << "Failed to load input image" << std::endl;
+        return 1;
+    }
+    detector.detect(image, nullptr);
+    detector.detect(image, nullptr);
+
+    // Subscribe to the camera topic
+    ros::Subscriber sub = nh.subscribe("/camera/color/image_raw", 1, cameraCallback); // Adjust the topic name
+
+    // Initialize the OpenCV window
+    cv::namedWindow("Camera Feed", cv::WINDOW_AUTOSIZE);
+
+    // Start the ROS main loop
+    ros::spin();
+
+    // Close the OpenCV window
+    cv::destroyWindow("Camera Feed");
+
+    return 0;
+}
