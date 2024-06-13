@@ -29,6 +29,11 @@ Before using this package, you need to ensure the following prerequisites are me
 
 ![alt text](https://github.com/amin-amani/ROS-YoloV5_Realsense/blob/main/doc/gpu.png)
 
+## contribution with RealSense camera
+
+roslaunch realsense2_camera rs_camera.launch align_depth:=true
+
+
 
 
 ## License
